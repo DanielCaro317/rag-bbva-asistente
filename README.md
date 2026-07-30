@@ -8,9 +8,9 @@ Asistente conversacional (RAG) que responde preguntas sobre el contenido de un s
 
 Diseño desacoplado: la interfaz (API/UI) llama a un núcleo RAG independiente del framework, con proveedores de LLM, embeddings y vector store intercambiables.
 
-```
-UI ──HTTP──► API (FastAPI) ──► Núcleo RAG ──► [Embeddings · Vector store · LLM · Historial]
-```
+![Arquitectura del Sistema RAG](docs/arquitectura.png)
+
+> La UI llama a la API (FastAPI), que delega en el Núcleo RAG; este orquesta embeddings, vector store, LLM e historial. El stack concreto (Qdrant, Ollama, e5, SQLite) se detalla abajo.
 
 ## Stack
 
