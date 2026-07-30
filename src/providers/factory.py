@@ -1,6 +1,7 @@
 from src.config import settings
 from src.providers.embeddings import EmbeddingsModel
 from src.providers.llm import OllamaLLM
+from src.providers.reranker import Reranker
 from src.providers.vector_store import QdrantVectorStore
 
 
@@ -18,3 +19,9 @@ def get_llm():
     if settings.llm_provider == "ollama":
         return OllamaLLM()
     raise ValueError(f"proveedor LLM no soportado: {settings.llm_provider}")
+
+
+def get_reranker():
+    if settings.reranker_enabled:
+        return Reranker()
+    return None
