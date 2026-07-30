@@ -2,8 +2,7 @@ from pathlib import Path
 
 from src.config import settings
 from src.ingestion.chunker import chunk_text
-from src.providers.embeddings import EmbeddingsModel
-from src.providers.vector_store import QdrantVectorStore
+from src.providers.factory import get_embeddings, get_vector_store
 
 CLEAN_DIR = Path("data/clean")
 
@@ -22,8 +21,8 @@ def build_index():
     if not records:
         print("No hay documentos en data/clean. Corre primero el scraper.")
         return 0
-    embedder = EmbeddingsModel()
-    store = QdrantVectorStore(dim=embedder.dim)
+    embedder = get_embeddings()
+    store = get_vector_store(dim=embedder.dim)
     store.reset()
     vectors = embedder.embed_documents([r["text"] for r in records])
     store.upsert(records, vectors)
