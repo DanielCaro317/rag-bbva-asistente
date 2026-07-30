@@ -2,7 +2,7 @@ import sys
 import uuid
 
 from src.config import settings
-from src.providers.factory import get_embeddings, get_llm, get_vector_store
+from src.providers.factory import get_embeddings, get_llm, get_reranker, get_vector_store
 from src.repositories.conversation_repository import ConversationRepository
 
 PROMPT_TEMPLATE = """Eres un asistente que responde preguntas sobre el sitio web de un banco.
@@ -26,10 +26,14 @@ class RAGService:
         self.embeddings = get_embeddings()
         self.vector_store = get_vector_store(dim=self.embeddings.dim)
         self.llm = get_llm()
+        self.reranker = get_reranker()
         self.history = ConversationRepository()
 
     def retrieve(self, question):
         vector = self.embeddings.embed_query(question)
+        if self.reranker:
+            candidates = self.vector_store.search(vector, settings.top_k * 4)
+            return self.reranker.rerank(question, candidates, settings.top_k)
         return self.vector_store.search(vector, settings.top_k)
 
     def answer(self, question, session_id="default"):
