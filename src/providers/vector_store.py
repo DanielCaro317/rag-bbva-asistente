@@ -3,9 +3,10 @@ import uuid
 from qdrant_client import QdrantClient, models
 
 from src.config import settings
+from src.providers.base import VectorStore
 
 
-class QdrantVectorStore:
+class QdrantVectorStore(VectorStore):
     def __init__(self, dim, url=None, collection=None):
         self.client = QdrantClient(url=url or settings.qdrant_url)
         self.collection = collection or settings.collection_name

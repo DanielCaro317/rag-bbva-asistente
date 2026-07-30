@@ -1,9 +1,10 @@
 from sentence_transformers import SentenceTransformer
 
 from src.config import settings
+from src.providers.base import EmbeddingsProvider
 
 
-class EmbeddingsModel:
+class EmbeddingsModel(EmbeddingsProvider):
     def __init__(self, model_name=None):
         self.model = SentenceTransformer(model_name or settings.embeddings_model)
 
