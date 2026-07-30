@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
 
     history_n: int = 6
-    db_path: str = "/app/data/conversations.sqlite3"
+    db_path: str = "data/conversations.sqlite3"
 
     scraper_base_url: str = "https://www.scotiabankcolpatria.com/"
     scraper_max_pages: int = 50
