@@ -2,6 +2,10 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.DS_Store
+**/.DS_Store
+node_modules/
+dist/
 data/raw/*
 data/clean/*
 !data/**/.gitkeep
