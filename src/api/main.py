@@ -4,7 +4,8 @@ from functools import lru_cache
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.schemas import ChatRequest, ChatResponse
+from src.analytics.metrics import compute_metrics
+from src.api.schemas import ChatRequest, ChatResponse, MetricsResponse
 from src.config import settings
 from src.core.rag_service import RAGService
 
@@ -33,6 +34,11 @@ app.add_middleware(
 @app.get("/health")
 def health():
     return {"status": "ok", "env": settings.app_env}
+
+
+@app.get("/metrics", response_model=MetricsResponse)
+def metrics():
+    return compute_metrics()
 
 
 @app.post("/chat", response_model=ChatResponse)
