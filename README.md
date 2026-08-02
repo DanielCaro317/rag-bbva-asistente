@@ -1,54 +1,169 @@
-# RAG BBVA Asistente
+# Asistente RAG · Banca
 
-Asistente conversacional (RAG) que responde preguntas sobre el contenido de un sitio web bancario. Extrae el contenido mediante web scraping, lo vectoriza e indexa, y genera respuestas con memoria de conversación por sesión.
+Asistente conversacional (**RAG**) que responde preguntas sobre el contenido público de un sitio web bancario. Hace *web scraping* del sitio, vectoriza e indexa el contenido, y genera respuestas fundamentadas (*grounded*) con **memoria de conversación por sesión**. Arquitectura desacoplada, proveedores intercambiables y patrones de diseño documentados.
 
-> Proyecto en construcción. El README se completa a medida que avanzan las fases (ver estado abajo).
+## Características (mapeadas a los requisitos)
+
+- **Web scraping** que guarda el contenido **crudo** (HTML) y **limpio** (Markdown), respetando `robots.txt`.
+- **Vectorización e indexado** con embeddings multilingües en una base vectorial.
+- **Interfaz conversacional**: API REST (FastAPI) + frontend React.
+- **Memoria por sesión**: usa los **últimos N mensajes** (N configurable) y **persiste** el historial.
+- **Analítica** del historial de conversaciones (`GET /metrics`).
+- **Patrones de diseño** documentados (Strategy, Factory, Facade, Repository).
+- **Configuración por `.env`**, **reranker** opcional y **manejo de errores** (bonus).
+- **Docker / docker-compose**.
 
 ## Arquitectura
 
-Diseño desacoplado: la interfaz (API/UI) llama a un núcleo RAG independiente del framework, con proveedores de LLM, embeddings y vector store intercambiables.
+Diseño desacoplado: la interfaz (API/UI) llama a un **núcleo RAG independiente del framework**, con proveedores de LLM, embeddings y vector store intercambiables.
 
 ![Arquitectura del Sistema RAG](docs/arquitectura.png)
 
-> La UI llama a la API (FastAPI), que delega en el Núcleo RAG; este orquesta embeddings, vector store, LLM e historial. El stack concreto (Qdrant, Ollama, e5, SQLite) se detalla abajo.
+**Flujo de una consulta:**
+1. La UI (React) envía la pregunta y un `session_id` a la API.
+2. La API valida (Pydantic) y delega en el `RAGService`.
+3. El servicio: *embed* de la pregunta → búsqueda en Qdrant → (reranker) → arma el prompt con el contexto y los últimos N mensajes → LLM (Ollama) → respuesta + fuentes.
+4. Se **persiste** el turno (usuario + asistente) en SQLite.
 
-## Stack
+## Patrones de diseño
 
-- Python 3.11
-- FastAPI (API)
-- Qdrant (base de datos vectorial)
-- sentence-transformers (embeddings multilingües)
-- Ollama (LLM local; proveedor intercambiable)
-- SQLite (historial de conversación)
-- Docker / docker-compose
+| Patrón | Dónde | Para qué |
+|---|---|---|
+| **Strategy** | `src/providers/base.py` + implementaciones | Interfaces para LLM, embeddings y vector store: cada tecnología es una estrategia intercambiable. |
+| **Factory** | `src/providers/factory.py` | Crea la implementación correcta según `.env`, sin que el resto del código sepa cuál. |
+| **Facade** | `src/core/rag_service.py` | `RAGService.answer()` esconde toda la orquestación tras un método simple. |
+| **Repository** | `src/repositories/conversation_repository.py` | Aísla la persistencia del historial; el núcleo no sabe que debajo hay SQLite. |
+
+Estos patrones son los que permiten cambiar Ollama por Bedrock, o Qdrant por OpenSearch, tocando solo la *factory* y una clase — sin tocar la API ni la UI.
+
+## Stack y por qué
+
+- **Python 3.11+**
+- **FastAPI** — API tipada, validación con Pydantic y Swagger automático.
+- **Qdrant** — base de datos vectorial (distancia coseno).
+- **sentence-transformers** con **`intfloat/multilingual-e5-base`** — embeddings multilingües (contenido en español).
+- **Ollama** con **`qwen2.5:3b`** — LLM local, gratis y self-hosted (proveedor intercambiable).
+- **CrossEncoder `bge-reranker-v2-m3`** — reranker opcional (recuperación en dos etapas).
+- **SQLite** — persistencia del historial.
+- **React (Vite)** — frontend de chat.
+- **Docker / docker-compose**.
+
+Todo el núcleo es **gratis y self-hosted**; el diseño con Strategy permite mapear cada pieza a AWS (ver [Equivalencia en AWS](#equivalencia-en-aws)).
 
 ## Fuente de datos
 
-El sitio objetivo original (BBVA Colombia) está protegido por un WAF anti-bot que responde `403` a toda petición programática, incluido `robots.txt`. La prueba permite usar otro banco, por lo que se seleccionó **Scotiabank Colpatria**: su sitio es server-rendered y su `robots.txt` permite el crawling de las páginas informativas (solo bloquea directorios de infraestructura). El scraper **respeta `robots.txt`**. Detalle y evidencia reproducible en [docs/decisiones.md](docs/decisiones.md).
+El sitio objetivo original (BBVA Colombia) está protegido por un WAF anti-bot que responde `403` a toda petición programática, incluido `robots.txt`. La prueba permite usar otro banco, por lo que se seleccionó **Scotiabank Colpatria**: su sitio es *server-rendered* y su `robots.txt` permite el crawling de las páginas informativas (solo bloquea directorios de infraestructura). El scraper **respeta `robots.txt`**. Detalle y evidencia reproducible en [docs/decisiones.md](docs/decisiones.md).
 
-## Requisitos previos
+## Estructura del proyecto
 
-- Docker y Docker Compose
-- (Opcional, para desarrollo) Python 3.11+
+```
+src/
+  ingestion/     scraper, chunker, indexer
+  providers/     Strategy + Factory (embeddings, vector store, llm, reranker)
+  core/          RAGService (Facade)
+  repositories/  ConversationRepository (Repository)
+  analytics/     métricas del historial
+  api/           FastAPI (endpoints, schemas)
+frontend/        React + Vite (UI de chat)
+data/            raw (HTML) + clean (Markdown) + sqlite
+docs/            decisiones (ADR) y diagrama
+```
 
 ## Puesta en marcha
 
+### Requisitos
+- Docker y Docker Compose
+- Para desarrollo local: Python 3.11+ y Node 18+
+
+### Opción A — Docker (un comando)
+
 ```bash
 cp .env.example .env
-docker compose up -d
+docker compose up --build
 ```
 
-- API: http://localhost:8000/health
-- Qdrant: http://localhost:6333/dashboard
+Levanta Qdrant, Ollama (descarga el modelo), indexa el contenido y expone la API y el frontend.
 
-> El primer arranque descarga el modelo de Ollama. Las instrucciones completas de uso se documentan al cerrar las fases.
+- Frontend: http://localhost:5173
+- API / Swagger: http://localhost:8000/docs
 
-## Estado
+> El primer arranque descarga modelos (Ollama, embeddings, reranker); puede tardar varios minutos.
 
-- [x] Estructura, configuración y esqueleto Docker
-- [x] Web scraping (crudo + limpio)
-- [ ] Indexado vectorial
-- [ ] Núcleo RAG + memoria de conversación
-- [ ] API + interfaz conversacional
-- [ ] Analítica del historial
-- [ ] README completo (patrones de diseño, decisiones, mejoras)
+### Opción B — Desarrollo local
+
+```bash
+# 1. Infraestructura
+cp .env.example .env
+docker compose up -d qdrant ollama
+docker compose exec ollama ollama pull qwen2.5:3b
+
+# 2. Backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m src.ingestion.scraper                                   # genera data/raw + data/clean
+QDRANT_URL=http://localhost:6333 python -m src.ingestion.indexer  # indexa
+QDRANT_URL=http://localhost:6333 OLLAMA_BASE_URL=http://localhost:11434 \
+  uvicorn src.api.main:app --port 8000
+
+# 3. Frontend (otra terminal)
+cd frontend && npm install && npm run dev
+```
+
+## Uso
+
+### API
+
+- `POST /chat` — pregunta al asistente (mantén el mismo `session_id` para conservar el contexto):
+  ```bash
+  curl -X POST http://localhost:8000/chat -H "Content-Type: application/json" \
+    -d '{"question":"¿Qué cuentas de ahorro ofrece?","session_id":"demo"}'
+  ```
+  Respuesta: `{ "answer": "...", "sources": ["..."], "session_id": "demo" }`
+- `GET /metrics` — analítica del historial.
+- `GET /health` — estado del servicio.
+- `GET /docs` — documentación interactiva (Swagger).
+
+### CLI
+
+```bash
+python -m src.core.rag_service "¿Qué productos ofrece el banco?"
+```
+
+## Configuración (`.env`)
+
+| Variable | Descripción |
+|---|---|
+| `LLM_PROVIDER`, `LLM_MODEL`, `OLLAMA_BASE_URL` | proveedor y modelo del LLM |
+| `EMBEDDINGS_MODEL` | modelo de embeddings |
+| `VECTOR_STORE`, `QDRANT_URL`, `COLLECTION_NAME` | base vectorial |
+| `CHUNK_SIZE`, `CHUNK_OVERLAP`, `TOP_K` | parámetros de RAG |
+| `RERANKER_ENABLED`, `RERANKER_MODEL` | reranker (bonus) |
+| `HISTORY_N` | nº de mensajes previos que entran al contexto (memoria) |
+| `DB_PATH` | ruta de la base del historial |
+| `CORS_ORIGINS` | orígenes permitidos por la API |
+
+## Analítica
+
+`GET /metrics` calcula sobre el historial: número de sesiones y mensajes, preguntas/respuestas, promedios de longitud, **tasa de respuestas "no sé"** (proxy de *grounding*) y **volumen por día**. Lee del mismo Repository que la memoria, así que es agnóstica del motor de persistencia.
+
+## Limitaciones conocidas y mejoras futuras
+
+- **Latencia**: el LLM y el reranker corren en **CPU** (Ollama en Docker no usa la GPU de Apple), ~1–2 min por respuesta. Para un demo fluido, correr **Ollama nativo (Metal)**; para producción, apuntar el proveedor a una API/GPU (Bedrock) vía Strategy.
+- **Fuentes** = *slug* de la página; una mejora es exponer la URL completa (guardarla en el *payload* al indexar).
+- **Reranker**: mejora la calidad a costa de latencia; se desactiva con `RERANKER_ENABLED=false`.
+- **Métrica de grounding** por heurística de texto; lo robusto sería marcar la respuesta al generar o evaluar con un juez (LLM-as-judge).
+- **Escalado**: SQLite y el cálculo on-demand de métricas sirven para este alcance; con volumen, migrar a Postgres/DynamoDB (el Repository lo aísla) y materializar las métricas.
+
+## Equivalencia en AWS
+
+El diseño desacoplado permite reconstruir el sistema en AWS mapeando cada pieza:
+
+| Este proyecto | AWS |
+|---|---|
+| Ollama (`qwen2.5`) | Amazon Bedrock (Claude/Nova) |
+| e5 embeddings | Titan Text Embeddings |
+| Qdrant | OpenSearch Serverless / S3 Vectors |
+| SQLite (Repository) | DynamoDB |
+| FastAPI | API Gateway + Lambda / ECS |
+| Frontend React | S3 + CloudFront |
+| docker-compose | ECS / Fargate |
