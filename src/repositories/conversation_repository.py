@@ -22,15 +22,20 @@ class ConversationRepository:
                     session_id TEXT NOT NULL,
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    latency_ms INTEGER
                 )"""
             )
+            # migración suave para bases creadas antes de la columna
+            cols = [r[1] for r in con.execute("PRAGMA table_info(messages)")]
+            if "latency_ms" not in cols:
+                con.execute("ALTER TABLE messages ADD COLUMN latency_ms INTEGER")
 
-    def add_message(self, session_id, role, content):
+    def add_message(self, session_id, role, content, latency_ms=None):
         with self._connect() as con:
             con.execute(
-                "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-                (session_id, role, content, datetime.now(timezone.utc).isoformat()),
+                "INSERT INTO messages (session_id, role, content, created_at, latency_ms) VALUES (?, ?, ?, ?, ?)",
+                (session_id, role, content, datetime.now(timezone.utc).isoformat(), latency_ms),
             )
 
     # últimos N en orden cronológico
@@ -45,9 +50,9 @@ class ConversationRepository:
     def all_messages(self):
         with self._connect() as con:
             rows = con.execute(
-                "SELECT session_id, role, content, created_at FROM messages ORDER BY id"
+                "SELECT session_id, role, content, created_at, latency_ms FROM messages ORDER BY id"
             ).fetchall()
         return [
-            {"session_id": s, "role": r, "content": c, "created_at": t}
-            for s, r, c, t in rows
+            {"session_id": s, "role": r, "content": c, "created_at": t, "latency_ms": lat}
+            for s, r, c, t, lat in rows
         ]

@@ -1,4 +1,5 @@
 import sys
+import time
 import uuid
 
 from src.config import settings
@@ -37,6 +38,7 @@ class RAGService:
         return self.vector_store.search(vector, settings.top_k)
 
     def answer(self, question, session_id="default"):
+        start = time.perf_counter()
         hits = self.retrieve(question)
         context = "\n\n".join(f"[{h['source']}] {h['text']}" for h in hits)
         recent = self.history.get_recent(session_id, settings.history_n)
@@ -44,9 +46,10 @@ class RAGService:
 
         prompt = PROMPT_TEMPLATE.format(history=history, context=context, question=question)
         answer = self.llm.generate(prompt)
+        latency_ms = int((time.perf_counter() - start) * 1000)
 
         self.history.add_message(session_id, "user", question)
-        self.history.add_message(session_id, "assistant", answer)
+        self.history.add_message(session_id, "assistant", answer, latency_ms)
         return {
             "answer": answer,
             "sources": sorted({h["source"] for h in hits}),

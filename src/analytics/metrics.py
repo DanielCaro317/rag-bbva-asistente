@@ -29,6 +29,7 @@ def compute_metrics(repo=None):
     no_answer = sum(
         1 for m in answers if any(h in m["content"].lower() for h in NO_ANSWER_HINTS)
     )
+    latencies = [m["latency_ms"] for m in answers if m.get("latency_ms") is not None]
 
     return {
         "total_sessions": len(sessions),
@@ -39,5 +40,7 @@ def compute_metrics(repo=None):
         "avg_question_length": _avg([len(m["content"]) for m in questions]),
         "avg_answer_length": _avg([len(m["content"]) for m in answers]),
         "grounding_no_answer_rate": round(no_answer / len(answers), 3) if answers else 0.0,
+        "avg_latency_ms": round(sum(latencies) / len(latencies)) if latencies else 0,
+        "max_latency_ms": max(latencies) if latencies else 0,
         "messages_by_day": dict(sorted(by_day.items())),
     }

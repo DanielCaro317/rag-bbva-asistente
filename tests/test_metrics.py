@@ -17,8 +17,20 @@ def test_metrics_counts(tmp_path):
     assert m["grounding_no_answer_rate"] == 0.5
 
 
+def test_metrics_latency(tmp_path):
+    repo = ConversationRepository(db_path=str(tmp_path / "c.sqlite3"))
+    repo.add_message("s", "user", "q1")
+    repo.add_message("s", "assistant", "a1", latency_ms=100)
+    repo.add_message("s", "user", "q2")
+    repo.add_message("s", "assistant", "a2", latency_ms=300)
+    m = compute_metrics(repo)
+    assert m["avg_latency_ms"] == 200
+    assert m["max_latency_ms"] == 300
+
+
 def test_metrics_empty(tmp_path):
     repo = ConversationRepository(db_path=str(tmp_path / "c.sqlite3"))
     m = compute_metrics(repo)
     assert m["total_messages"] == 0
     assert m["grounding_no_answer_rate"] == 0.0
+    assert m["avg_latency_ms"] == 0

@@ -21,4 +21,6 @@ class MetricsResponse(BaseModel):
     avg_question_length: float
     avg_answer_length: float
     grounding_no_answer_rate: float
+    avg_latency_ms: int
+    max_latency_ms: int
     messages_by_day: dict[str, int]
