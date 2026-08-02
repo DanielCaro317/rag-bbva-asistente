@@ -1,0 +1,26 @@
+# Despliegue de la API en Render (ver sección "Despliegue" del README).
+# El LLM apunta a Groq (compatible OpenAI) y el vector store a Qdrant Cloud.
+services:
+  - type: web
+    name: rag-bbva-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: LLM_PROVIDER
+        value: openai
+      - key: LLM_API_BASE
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: llama-3.1-8b-instant
+      - key: LLM_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: RERANKER_ENABLED
+        value: "false"
+      - key: CORS_ORIGINS
+        sync: false

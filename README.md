@@ -165,6 +165,25 @@ pytest tests/ -v
 
 `GET /metrics` recorre el historial y calcula: número de sesiones y mensajes, preguntas/respuestas, promedios de longitud, **tasa de respuestas "no sé"** (proxy de *grounding*), **latencia media y máxima** de respuesta y **volumen por día**. Lee del mismo Repository que la memoria, así que es agnóstica del motor de persistencia. En el frontend, la pestaña **Métricas** muestra estos indicadores.
 
+## Despliegue en free tier (opcional)
+
+El núcleo es self-hosted, pero gracias al patrón **Strategy** se despliega en free tier **cambiando solo proveedores por `.env`**, sin tocar el código:
+
+- **LLM:** Ollama → **Groq** (`LLM_PROVIDER=openai`, API compatible con OpenAI, gratis y sin tarjeta).
+- **Vector store:** Qdrant local → **Qdrant Cloud** (free 1 GB, vía `QDRANT_API_KEY`).
+- **API:** **Render** (`render.yaml`). **Frontend:** **Vercel** (`frontend/vercel.json`).
+
+Pasos:
+1. **Qdrant Cloud** — crea un cluster free; copia su URL + API key. Indexa contra él desde tu máquina:
+   ```bash
+   QDRANT_URL=<cloud-url> QDRANT_API_KEY=<key> python -m src.ingestion.indexer
+   ```
+2. **Groq** — genera una API key gratis en console.groq.com.
+3. **API en Render** — conecta el repo (usa `render.yaml`) y define las envs `LLM_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY` y `CORS_ORIGINS` (la URL del frontend).
+4. **Frontend en Vercel** — importa la carpeta `frontend/` y define `VITE_API_URL` con la URL de la API en Render.
+
+> **Nota honesta (embeddings):** el modelo e5 (~1 GB con torch) no cabe en la RAM del free tier de Render (512 MB). Opciones: una instancia con ≥1 GB, un modelo de embeddings más pequeño, o una **API de embeddings hosted** (mismo patrón Strategy). Aquí se deja la **configuración y la guía**; el despliegue en vivo queda como paso siguiente.
+
 ## Limitaciones conocidas y mejoras futuras
 
 - **Latencia**: el LLM y el reranker corren en **CPU** (Ollama en Docker no usa la GPU de Apple), ~1–2 min por respuesta (**cuantificada en `/metrics`**). Para un demo fluido, correr **Ollama nativo (Metal)**; para producción, apuntar el proveedor a una API/GPU (Bedrock) vía Strategy.
