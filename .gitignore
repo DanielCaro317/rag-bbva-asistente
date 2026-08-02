@@ -6,8 +6,11 @@ __pycache__/
 **/.DS_Store
 node_modules/
 dist/
+.pytest_cache/
 data/raw/*
 data/clean/*
 !data/**/.gitkeep
+!data/clean/*.md
+!data/clean/manifest.json
 *.sqlite3
 .qdrant/
