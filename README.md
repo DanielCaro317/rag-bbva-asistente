@@ -25,6 +25,10 @@ Diseño desacoplado: la interfaz (API/UI) llama a un **núcleo RAG independiente
 3. El servicio: *embed* de la pregunta → búsqueda en Qdrant → (reranker) → arma el prompt con el contexto y los últimos N mensajes → LLM (Ollama) → respuesta + fuentes.
 4. Se **persiste** el turno (usuario + asistente) en SQLite.
 
+**Pipeline de ingesta e indexado** (del sitio a la base vectorial):
+
+![Pipeline de ingesta e indexado](docs/pipeline-ingesta.png)
+
 ## Patrones de diseño
 
 | Patrón | Dónde | Para qué |
@@ -55,6 +59,10 @@ Todo el núcleo es **gratis y self-hosted**; el diseño con Strategy permite map
 El sitio objetivo original (BBVA Colombia) está protegido por un WAF anti-bot que responde `403` a toda petición programática, incluido `robots.txt`. La prueba permite usar otro banco, por lo que se seleccionó **Scotiabank Colpatria**: su sitio es *server-rendered* y su `robots.txt` permite el crawling de las páginas informativas (solo bloquea directorios de infraestructura). El scraper **respeta `robots.txt`**. Detalle y evidencia reproducible en [docs/decisiones.md](docs/decisiones.md).
 
 > Scotiabank Colpatria pasó a llamarse **DAVIbank** (tras su integración con Davivienda), por lo que el contenido scrapeado y las respuestas del asistente aparecen con esa marca.
+
+**Lógica del scraper** (respeta `robots.txt`, BFS del dominio, guarda crudo + limpio y encola enlaces internos):
+
+![Flujo del crawler](docs/scraper-flujo.png)
 
 ## Estructura del proyecto
 
