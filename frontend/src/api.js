@@ -17,3 +17,9 @@ export async function sendMessage(question, sessionId) {
   }
   return res.json();
 }
+
+export async function getMetrics() {
+  const res = await fetch(`${API_URL}/metrics`);
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return res.json();
+}
