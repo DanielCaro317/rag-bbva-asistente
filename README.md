@@ -54,6 +54,8 @@ Todo el núcleo es **gratis y self-hosted**; el diseño con Strategy permite map
 
 El sitio objetivo original (BBVA Colombia) está protegido por un WAF anti-bot que responde `403` a toda petición programática, incluido `robots.txt`. La prueba permite usar otro banco, por lo que se seleccionó **Scotiabank Colpatria**: su sitio es *server-rendered* y su `robots.txt` permite el crawling de las páginas informativas (solo bloquea directorios de infraestructura). El scraper **respeta `robots.txt`**. Detalle y evidencia reproducible en [docs/decisiones.md](docs/decisiones.md).
 
+> Scotiabank Colpatria pasó a llamarse **DAVIbank** (tras su integración con Davivienda), por lo que el contenido scrapeado y las respuestas del asistente aparecen con esa marca.
+
 ## Estructura del proyecto
 
 ```
@@ -65,6 +67,7 @@ src/
   analytics/     métricas del historial
   api/           FastAPI (endpoints, schemas)
 frontend/        React + Vite (UI de chat)
+tests/           pruebas unitarias (pytest)
 data/            raw (HTML) + clean (Markdown) + sqlite
 docs/            decisiones (ADR) y diagrama
 ```
@@ -78,11 +81,10 @@ docs/            decisiones (ADR) y diagrama
 ### Opción A — Docker (un comando)
 
 ```bash
-cp .env.example .env
 docker compose up --build
 ```
 
-Levanta Qdrant, Ollama (descarga el modelo), indexa el contenido y expone la API y el frontend.
+Levanta Qdrant, Ollama (con **descarga automática del modelo**), **indexa una muestra del contenido ya scrapeado** (incluida en el repo, para que funcione sin conexión) y expone la API y el frontend. No requiere `.env`: la configuración por defecto ya apunta a los servicios del compose.
 
 - Frontend: http://localhost:5173
 - API / Swagger: http://localhost:8000/docs
@@ -129,6 +131,15 @@ cd frontend && npm install && npm run dev
 python -m src.core.rag_service "¿Qué productos ofrece el banco?"
 ```
 
+## Pruebas
+
+Pruebas unitarias (chunking, repositorio, métricas, config, schemas, factory), sin necesidad de servicios:
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
 ## Configuración (`.env`)
 
 | Variable | Descripción |
@@ -144,11 +155,11 @@ python -m src.core.rag_service "¿Qué productos ofrece el banco?"
 
 ## Analítica
 
-`GET /metrics` calcula sobre el historial: número de sesiones y mensajes, preguntas/respuestas, promedios de longitud, **tasa de respuestas "no sé"** (proxy de *grounding*) y **volumen por día**. Lee del mismo Repository que la memoria, así que es agnóstica del motor de persistencia.
+`GET /metrics` recorre el historial y calcula: número de sesiones y mensajes, preguntas/respuestas, promedios de longitud, **tasa de respuestas "no sé"** (proxy de *grounding*), **latencia media y máxima** de respuesta y **volumen por día**. Lee del mismo Repository que la memoria, así que es agnóstica del motor de persistencia. En el frontend, la pestaña **Métricas** muestra estos indicadores.
 
 ## Limitaciones conocidas y mejoras futuras
 
-- **Latencia**: el LLM y el reranker corren en **CPU** (Ollama en Docker no usa la GPU de Apple), ~1–2 min por respuesta. Para un demo fluido, correr **Ollama nativo (Metal)**; para producción, apuntar el proveedor a una API/GPU (Bedrock) vía Strategy.
+- **Latencia**: el LLM y el reranker corren en **CPU** (Ollama en Docker no usa la GPU de Apple), ~1–2 min por respuesta (**cuantificada en `/metrics`**). Para un demo fluido, correr **Ollama nativo (Metal)**; para producción, apuntar el proveedor a una API/GPU (Bedrock) vía Strategy.
 - **Fuentes** = *slug* de la página; una mejora es exponer la URL completa (guardarla en el *payload* al indexar).
 - **Reranker**: mejora la calidad a costa de latencia; se desactiva con `RERANKER_ENABLED=false`.
 - **Métrica de grounding** por heurística de texto; lo robusto sería marcar la respuesta al generar o evaluar con un juez (LLM-as-judge).
