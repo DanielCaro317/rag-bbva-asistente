@@ -9,11 +9,15 @@ class Settings(BaseSettings):
     llm_provider: str = "ollama"
     llm_model: str = "qwen2.5:3b"
     ollama_base_url: str = "http://ollama:11434"
+    # LLM hosted compatible con OpenAI (Groq, OpenRouter, etc.) para despliegue
+    llm_api_base: str = "https://api.groq.com/openai/v1"
+    llm_api_key: str = ""
 
     embeddings_model: str = "intfloat/multilingual-e5-base"
 
     vector_store: str = "qdrant"
     qdrant_url: str = "http://qdrant:6333"
+    qdrant_api_key: str = ""  # para Qdrant Cloud
     collection_name: str = "bbva"
 
     chunk_size: int = 800

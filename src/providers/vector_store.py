@@ -8,7 +8,7 @@ from src.providers.base import VectorStore
 
 class QdrantVectorStore(VectorStore):
     def __init__(self, dim, url=None, collection=None):
-        self.client = QdrantClient(url=url or settings.qdrant_url)
+        self.client = QdrantClient(url=url or settings.qdrant_url, api_key=settings.qdrant_api_key or None)
         self.collection = collection or settings.collection_name
         self.dim = dim
 
