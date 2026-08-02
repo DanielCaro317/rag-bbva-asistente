@@ -3,10 +3,11 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout 300 --retries 5 -r requirements.txt
 
 COPY src/ ./src/
-COPY ui/ ./ui/
+COPY data/clean/ ./data/clean/
+COPY docker/backend-entrypoint.sh ./docker/backend-entrypoint.sh
 
 EXPOSE 8000
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "docker/backend-entrypoint.sh"]
